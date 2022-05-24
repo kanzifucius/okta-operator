@@ -1,0 +1,20 @@
+# permissions for end users to view trusteddomains.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trusteddomain-viewer-role
+rules:
+- apiGroups:
+  - okta.com
+  resources:
+  - trusteddomains
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - okta.com
+  resources:
+  - trusteddomains/status
+  verbs:
+  - get

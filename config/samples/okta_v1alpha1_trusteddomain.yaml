@@ -1,0 +1,9 @@
+apiVersion: okta.com/v1alpha1
+kind: TrustedDomain
+metadata:
+  name: trusteddomain-sample
+spec:
+  # TODO(user): Add fields here
+  domain: trusteddomain-sample
+
+

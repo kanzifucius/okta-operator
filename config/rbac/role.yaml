@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - okta.com
+  resources:
+  - trusteddomains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - okta.com
+  resources:
+  - trusteddomains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - okta.com
+  resources:
+  - trusteddomains/status
+  verbs:
+  - get
+  - patch
+  - update
