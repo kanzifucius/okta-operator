@@ -24,3 +24,4 @@ testbin/*
 *.swo
 *~
 /okta-operator.iml
+.vscode/launch.json

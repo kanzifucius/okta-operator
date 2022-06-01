@@ -17,12 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 	"os"
-
-	"github.com/okta/okta-sdk-golang/v2/okta"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -81,35 +77,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	oktaDomain, ok := os.LookupEnv("OKTA_DOMAIN")
-	if !ok {
-
-		setupLog.Info(fmt.Sprintf("%s not set\n", "OKTA_DOMAIN"))
-		os.Exit(1)
-	}
-
-	oktaToken, ok := os.LookupEnv("OKTA_TOKEN")
-	if !ok {
-
-		setupLog.Info(fmt.Sprintf("%s not set\n", "OKTA_TOKEN"))
-		os.Exit(1)
-	}
-
-	_, clientOkta, err := okta.NewClient(
-		context.TODO(),
-		okta.WithOrgUrl(oktaDomain),
-		okta.WithToken(oktaToken),
-	)
-
-	if err != nil {
-		setupLog.Error(err, "unable to create okta client", "controller", "OktaTrustedOrigins")
-		os.Exit(1)
-	}
-
 	if err = (&controllers.TrustedDomainReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		OktaClient: clientOkta,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OktaTrustedOrigins")
 		os.Exit(1)

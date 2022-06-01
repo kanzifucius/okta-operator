@@ -28,7 +28,8 @@ type TrustedDomainSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Domain string `json:"domain,omitempty"`
+	Domain     string `json:"domain,omitempty"`
+	SecretsRef string `json:"secretRef,omitempty"`
 }
 
 // TrustedDomainStatus defines the observed state of TrustedDomain

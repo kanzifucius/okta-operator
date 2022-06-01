@@ -37,6 +37,8 @@ spec:
             properties:
               domain:
                 type: string
+              secretRef:
+                type: string
             type: object
           status:
             description: TrustedDomainStatus defines the observed state of TrustedDomain
