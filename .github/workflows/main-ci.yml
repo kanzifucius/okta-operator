@@ -11,8 +11,6 @@ concurrency:
   group: main-ci-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-
 jobs:
   docker_build:
     name: Build Docker Image
