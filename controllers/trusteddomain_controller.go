@@ -141,6 +141,7 @@ func (r *TrustedDomainReconciler) OriginExists(ctx context.Context, name string)
 	return hostExists, id, nil
 }
 
+//+kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
 //+kubebuilder:rbac:groups=okta.com,resources=trusteddomains,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=okta.com,resources=trusteddomains/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=okta.com,resources=trusteddomains/finalizers,verbs=update
