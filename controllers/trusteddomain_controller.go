@@ -46,7 +46,8 @@ type TrustedDomainReconciler struct {
 }
 
 func (r *TrustedDomainReconciler) CreateOktaClient(ctx context.Context, namespace string, secretName string) error {
-
+	log := ctrllog.FromContext(ctx)
+	log.Info("Getting secret details for Secret ", "secret ", secretName, "Namespace ", namespace)
 	secret := &v1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: namespace}, secret)
 
@@ -141,7 +142,7 @@ func (r *TrustedDomainReconciler) OriginExists(ctx context.Context, name string)
 	return hostExists, id, nil
 }
 
-//+kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=okta.com,resources=trusteddomains,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=okta.com,resources=trusteddomains/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=okta.com,resources=trusteddomains/finalizers,verbs=update
