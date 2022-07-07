@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -45,15 +46,13 @@ type TrustedDomainReconciler struct {
 	OktaClient *okta.Client
 }
 
-func (r *TrustedDomainReconciler) CreateOktaClient(ctx context.Context, namespace string, secretName string) error {
-	log := ctrllog.FromContext(ctx)
-	log.Info("Getting secret details for Secret ", "secret ", secretName, "Namespace ", namespace)
+func (r *TrustedDomainReconciler) CreateOktaClient(log logr.Logger, ctx context.Context, secretName string, secretNamespace string) error {
+	log.Info(fmt.Sprintf("Getting secret details for Secret %s and namespace %s ", secretName, secretNamespace))
 	secret := &v1.Secret{}
-	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: namespace}, secret)
+	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: secretNamespace}, secret)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
-
 			return err
 		}
 
@@ -84,8 +83,7 @@ func (r *TrustedDomainReconciler) CreateOktaClient(ctx context.Context, namespac
 	return nil
 }
 
-func (r *TrustedDomainReconciler) DeleteOktaOrigin(ctx context.Context, originID string) error {
-	log := ctrllog.FromContext(ctx)
+func (r *TrustedDomainReconciler) DeleteOktaOrigin(log logr.Logger, ctx context.Context, originID string) error {
 	log.Info(fmt.Sprintf("deleting  trusted domain %s ", originID))
 	resp, err := r.OktaClient.TrustedOrigin.DeleteOrigin(ctx, originID)
 	if err != nil {
@@ -119,8 +117,7 @@ func (r *TrustedDomainReconciler) CreateOktaOrigin(ctx context.Context, name str
 	return origin.Id, nil
 }
 
-func (r *TrustedDomainReconciler) OriginExists(ctx context.Context, name string) (bool, string, error) {
-	log := ctrllog.FromContext(ctx)
+func (r *TrustedDomainReconciler) OriginExists(log logr.Logger, ctx context.Context, name string) (bool, string, error) {
 	var hostExists = false
 	var id = ""
 	filerQuery := fmt.Sprintf("name eq \"%s\"", name)
@@ -133,7 +130,7 @@ func (r *TrustedDomainReconciler) OriginExists(ctx context.Context, name string)
 
 	for _, origin := range trustedOrigin {
 		if strings.Contains(origin.Name, name) {
-			log.Info(fmt.Sprintf("Found trusted oring name%s origin %s", origin.Name, origin.Origin))
+			log.Info(fmt.Sprintf("Found trusted oring name %s origin %s", origin.Name, origin.Origin))
 			hostExists = true
 			id = origin.Id
 		}
@@ -167,7 +164,17 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	err = r.CreateOktaClient(ctx, req.Namespace, trustedDomain.Spec.SecretsRef)
+	var secretNameSpace string
+	if trustedDomain.Spec.SecretsRefNamespace == "" {
+		val, ok := os.LookupEnv("NAMESPACE")
+		if ok {
+			secretNameSpace = val
+		}
+	} else {
+		secretNameSpace = trustedDomain.Spec.SecretsRefNamespace
+	}
+
+	err = r.CreateOktaClient(log, ctx, secretNameSpace, trustedDomain.Spec.SecretsRef)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -204,7 +211,7 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	originExists, existingId, err := r.OriginExists(ctx, trustedDomain.Name)
+	originExists, existingId, err := r.OriginExists(log, ctx, trustedDomain.Name)
 	if err != nil {
 		log.Error(err, "error getting trusted origin")
 		return ctrl.Result{}, err
@@ -213,20 +220,35 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if !originExists {
 		id, err := r.CreateOktaOrigin(ctx, trustedDomain.Name, trustedDomain.Spec.Domain)
 		if err != nil {
-			log.Error(err, "Failed to update trustedDomain status")
+			log.Error(err, "failed to create okta origin")
+			trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{
+				Type:               "Reconciled",
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: 0,
+				Reason:             "failed to create origin",
+				Message:            err.Error(),
+				LastTransitionTime: metav1.Time{Time: time.Now()},
+			})
 			return ctrl.Result{Requeue: true}, err
 		}
+
 		trustedDomain.Status.TrustedDomainId = id
 		trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{
 			Type:               "Reconciled",
 			Status:             metav1.ConditionTrue,
-			ObservedGeneration: 0,
-			Reason:             "Reconsiled",
+			Reason:             "Created Domain",
 			Message:            "",
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		})
 	} else {
 		trustedDomain.Status.TrustedDomainId = existingId
+		trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{
+			Type:               "Reconciled",
+			Status:             metav1.ConditionTrue,
+			Reason:             "origin already exists",
+			Message:            "",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
+		})
 	}
 
 	log.Info("Completed reconcile for trustedDomain ", "trustedDomain", trustedDomain)
@@ -240,11 +262,11 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 }
 
-func (r *TrustedDomainReconciler) finalize(reqLogger logr.Logger, td *oktav1alpha1.TrustedDomain) error {
+func (r *TrustedDomainReconciler) finalize(log logr.Logger, td *oktav1alpha1.TrustedDomain) error {
 
-	err := r.DeleteOktaOrigin(context.TODO(), td.Status.TrustedDomainId)
+	err := r.DeleteOktaOrigin(log, context.TODO(), td.Status.TrustedDomainId)
 	if err != nil {
-		reqLogger.Error(err, "failed to delete trusted origin")
+		log.Error(err, "failed to delete trusted origin")
 		return err
 	}
 	return nil

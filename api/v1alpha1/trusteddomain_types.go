@@ -28,8 +28,9 @@ type TrustedDomainSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Domain     string `json:"domain,omitempty"`
-	SecretsRef string `json:"secretRef,omitempty"`
+	Domain              string `json:"domain,omitempty"`
+	SecretsRef          string `json:"secretRef,omitempty"`
+	SecretsRefNamespace string `json:"secretsRefNamespace,omitempty"`
 }
 
 // TrustedDomainStatus defines the observed state of TrustedDomain
@@ -37,7 +38,7 @@ type TrustedDomainStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	TrustedDomainId string             `json:"trusteddomainid,omitempty"`
-	Conditions      []metav1.Condition `json:"conditions"`
+	Conditions      []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

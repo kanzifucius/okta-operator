@@ -35,11 +35,11 @@ spec:
           spec:
             description: TrustedDomainSpec defines the desired state of TrustedDomain
             properties:
-              SecretsRefNamespace:
-                type: string
               domain:
                 type: string
               secretRef:
+                type: string
+              secretsRefNamespace:
                 type: string
             type: object
           status:
