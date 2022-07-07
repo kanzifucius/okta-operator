@@ -174,7 +174,7 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		secretNameSpace = trustedDomain.Spec.SecretsRefNamespace
 	}
 
-	err = r.CreateOktaClient(log, ctx, secretNameSpace, trustedDomain.Spec.SecretsRef)
+	err = r.CreateOktaClient(log, ctx, trustedDomain.Spec.SecretsRef, secretNameSpace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
