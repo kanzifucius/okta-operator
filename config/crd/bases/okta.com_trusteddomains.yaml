@@ -35,6 +35,8 @@ spec:
           spec:
             description: TrustedDomainSpec defines the desired state of TrustedDomain
             properties:
+              SecretsRefNamespace:
+                type: string
               domain:
                 type: string
               secretRef:
@@ -116,8 +118,6 @@ spec:
                   of cluster Important: Run "make" to regenerate code after modifying
                   this file'
                 type: string
-            required:
-            - conditions
             type: object
         type: object
     served: true
