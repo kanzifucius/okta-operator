@@ -28,11 +28,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http/httputil"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strings"
 	"time"
 )
@@ -94,8 +96,9 @@ func (r *TrustedDomainReconciler) DeleteOktaOrigin(log logr.Logger, ctx context.
 	return nil
 }
 
-func (r *TrustedDomainReconciler) CreateOktaOrigin(ctx context.Context, name string, domain string) (string, error) {
-	log := ctrllog.FromContext(ctx)
+func (r *TrustedDomainReconciler) CreateOktaOrigin(ctx context.Context, log logr.Logger, name string, domain string) (string, error) {
+
+	log.Info("Creating origin ", "domain", domain, "name", name)
 	origin, _, err := r.OktaClient.TrustedOrigin.CreateOrigin(ctx, okta.TrustedOrigin{
 		Name:   name,
 		Origin: fmt.Sprintf("https://%s", domain),
@@ -112,7 +115,7 @@ func (r *TrustedDomainReconciler) CreateOktaOrigin(ctx context.Context, name str
 		return "", err
 	}
 
-	log.Info("Created origin ", "originId", origin.Id)
+	log.Info("Created origin ", "originId", origin.Id, "domain", domain, "name", name)
 
 	return origin.Id, nil
 }
@@ -122,9 +125,13 @@ func (r *TrustedDomainReconciler) OriginExists(log logr.Logger, ctx context.Cont
 	var id = ""
 	filerQuery := fmt.Sprintf("name eq \"%s\"", name)
 	filter := oktaquery.NewQueryParams(oktaquery.WithFilter(filerQuery))
-	trustedOrigin, _, err := r.OktaClient.TrustedOrigin.ListOrigins(context.TODO(), filter)
+	trustedOrigin, resp, err := r.OktaClient.TrustedOrigin.ListOrigins(context.TODO(), filter)
 	if err != nil {
-		log.Error(err, "error getting trusted origins")
+		response, err := httputil.DumpResponse(resp.Response, true)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("error getting trusted origins...\n %q", response))
+		}
+
 		return hostExists, id, err
 	}
 
@@ -218,15 +225,15 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	}
 	if !originExists {
-		id, err := r.CreateOktaOrigin(ctx, trustedDomain.Name, trustedDomain.Spec.Domain)
+		id, err := r.CreateOktaOrigin(ctx, log, trustedDomain.Name, trustedDomain.Spec.Domain)
 		if err != nil {
 			log.Error(err, "failed to create okta origin")
 			trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{
 				Type:               "Reconciled",
 				Status:             metav1.ConditionFalse,
 				ObservedGeneration: 0,
-				Reason:             "failed to create origin",
-				Message:            err.Error(),
+				Reason:             "ApiFailure",
+				Message:            "",
 				LastTransitionTime: metav1.Time{Time: time.Now()},
 			})
 			return ctrl.Result{Requeue: true}, err
@@ -236,7 +243,7 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{
 			Type:               "Reconciled",
 			Status:             metav1.ConditionTrue,
-			Reason:             "Created Domain",
+			Reason:             "CreatedDomain",
 			Message:            "",
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		})
@@ -245,7 +252,7 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{
 			Type:               "Reconciled",
 			Status:             metav1.ConditionTrue,
-			Reason:             "origin already exists",
+			Reason:             "OriginAlreadyExists",
 			Message:            "",
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		})
@@ -275,6 +282,6 @@ func (r *TrustedDomainReconciler) finalize(log logr.Logger, td *oktav1alpha1.Tru
 // SetupWithManager sets up the controller with the Manager.
 func (r *TrustedDomainReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&oktav1alpha1.TrustedDomain{}).
+		For(&oktav1alpha1.TrustedDomain{}).WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
