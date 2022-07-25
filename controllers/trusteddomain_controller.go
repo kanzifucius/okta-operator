@@ -121,6 +121,7 @@ func (r *TrustedDomainReconciler) CreateOktaOrigin(ctx context.Context, log logr
 }
 
 func (r *TrustedDomainReconciler) OriginExists(log logr.Logger, ctx context.Context, name string) (bool, string, error) {
+
 	var hostExists = false
 	var id = ""
 	filerQuery := fmt.Sprintf("name eq \"%s\"", name)
@@ -225,7 +226,7 @@ func (r *TrustedDomainReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	}
 	if !originExists {
-		id, err := r.CreateOktaOrigin(ctx, log, trustedDomain.Name, trustedDomain.Spec.Domain)
+		id, err := r.CreateOktaOrigin(ctx, log, trustedDomain.Name+"-"+trustedDomain.Namespace, trustedDomain.Spec.Domain)
 		if err != nil {
 			log.Error(err, "failed to create okta origin")
 			trustedDomain.Status.Conditions = append(trustedDomain.Status.Conditions, metav1.Condition{

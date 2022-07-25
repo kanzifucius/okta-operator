@@ -156,9 +156,13 @@ print-manifests: manifests kustomize ## Generate manifests to be deployed in the
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default
 
-build-helm: generate manifests
-	mkdir -p helm
-	$(KUSTOMIZE) build config/default | awk '{f="helm/" NR "_manifest.yaml"; print $0 > f}' RS='\n---\n'
+HELMIFY = $(shell pwd)/bin/helmify
+
+helmify:
+	$(call go-get-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify@v0.3.7)
+
+helm: manifests kustomize helmify
+	$(KUSTOMIZE) build config/default | $(HELMIFY)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 .PHONY: kustomize
